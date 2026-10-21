@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Trading Journal</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        cyber: {
+                            bg: '#0D0E12',
+                            card: '#16181E',
+                            border: '#2A2D35',
+                            accent: '#00F0B5',
+                            success: '#00B574',
+                            danger: '#F6465D',
+                            warning: '#FFB800'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Toastify CSS & JS -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <style>
+        body {
+            background-color: #0D0E12;
+            color: #EAECEF;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0D0E12; }
+        ::-webkit-scrollbar-thumb { background: #2A2D35; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #00F0B5; }
+    </style>
+</head>
+<body class="min-h-screen pb-12">
+
+    <!-- 頁頭頂部導覽列 -->
+    <header class="border-b border-cyber-border bg-cyber-card/90 sticky top-0 z-30 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
+            <div class="flex items-center space-x-3">
+                <div class="bg-gradient-to-tr from-emerald-500 to-teal-400 p-2 rounded-xl text-black font-black shadow-lg shadow-emerald-500/20">
+                    <i class="fa-solid fa-chart-line text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-base sm:text-lg font-bold bg-gradient-to-r from-emerald-400 to-teal-200 bg-clip-text text-transparent">
+                        Crypto Trading Journal
+                    </h1>
+                    <p class="text-[11px] text-gray-400">加密貨幣合約交易日誌與市場終端</p>
+                </div>
+            </div>
+
+            <!-- 右側功能按鈕與雲端狀態 -->
+            <div class="flex items-center gap-3">
+                <button onclick="exportToExcelCSV()" class="px-3 py-1.5 rounded-xl bg-cyber-bg border border-cyber-border text-xs text-emerald-400 hover:bg-emerald-500/10 transition flex items-center gap-1.5 font-medium shadow-sm">
+                    <i class="fa-solid fa-file-excel"></i> 匯出 Excel (CSV)
+                </button>
+                <div id="syncStatusBadge" class="px-3 py-1.5 rounded-xl bg-cyber-border/80 text-gray-300 border border-cyber-border flex items-center gap-2 font-medium shadow-sm text-xs">
+                    <span id="syncStatusDot" class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                    <span id="syncStatusText">初始化連線...</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+
+        <!-- 24h 漲跌排行榜 Section -->
+        <section class="bg-cyber-card border border-cyber-border rounded-2xl p-4 shadow-xl">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-fire text-amber-500"></i>
+                    <h2 class="text-sm font-semibold text-gray-200">24H 漲跌排行榜 (合約實時行情)</h2>
+                </div>
+                
+                <div class="flex items-center gap-2">
+                    <div class="bg-cyber-bg p-1 rounded-xl border border-cyber-border flex gap-1">
+                        <button onclick="switchTickerExchange('Bitget')" id="tabBitget" class="px-3 py-1 rounded-lg text-xs font-bold transition bg-emerald-400 text-black shadow">Bitget</button>
+                        <button onclick="switchTickerExchange('Binance')" id="tabBinance" class="px-3 py-1 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition">Binance</button>
+                        <button onclick="switchTickerExchange('Bybit')" id="tabBybit" class="px-3 py-1 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition">Bybit</button>
+                    </div>
+                    <button onclick="fetchTickers()" class="p-2 rounded-xl bg-cyber-bg border border-cyber-border text-xs text-emerald-400 hover:text-emerald-300 transition" title="重新整理行情">
+                        <i class="fa-solid fa-rotate-right" id="refreshIcon"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- 漲幅 Top 10 -->
+                <div class="bg-cyber-bg/60 border border-emerald-500/20 rounded-xl p-3">
+                    <div class="text-xs font-medium text-emerald-400 mb-2 flex justify-between items-center">
+                        <span><i class="fa-solid fa-arrow-trend-up"></i> 漲幅 Top 10 (<span id="gainerExLabel">Bitget</span>)</span>
+                        <span class="text-[10px] text-gray-400">點擊帶入幣種與價格</span>
+                    </div>
+                    <div id="topGainers" class="flex gap-2 overflow-x-auto pb-1 text-xs min-h-[50px] items-center">
+                        <span class="text-gray-500 text-xs">載入中...</span>
+                    </div>
+                </div>
+
+                <!-- 跌幅 Top 10 -->
+                <div class="bg-cyber-bg/60 border border-rose-500/20 rounded-xl p-3">
+                    <div class="text-xs font-medium text-rose-400 mb-2 flex justify-between items-center">
+                        <span><i class="fa-solid fa-arrow-trend-down"></i> 跌幅 Top 10 (<span id="loserExLabel">Bitget</span>)</span>
+                        <span class="text-[10px] text-gray-400">點擊帶入幣種與價格</span>
+                    </div>
+                    <div id="topLosers" class="flex gap-2 overflow-x-auto pb-1 text-xs min-h-[50px] items-center">
+                        <span class="text-gray-500 text-xs">載入中...</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 動態統計數據儀表板 -->
+        <section class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+            <div class="bg-cyber-card border border-cyber-border rounded-xl p-4 flex flex-col justify-between">
+                <span class="text-xs text-gray-400">累積平倉總損益 (USDT)</span>
+                <span id="statTotalPnl" class="text-xl sm:text-2xl font-bold mt-2 text-gray-200">$0.00</span>
+            </div>
+            <div class="bg-cyber-card border border-cyber-border rounded-xl p-4 flex flex-col justify-between">
+                <span class="text-xs text-gray-400">總勝率 (Win Rate)</span>
+                <span id="statWinRate" class="text-xl sm:text-2xl font-bold mt-2 text-emerald-400">0%</span>
+            </div>
+            <div class="bg-cyber-card border border-cyber-border rounded-xl p-4 flex flex-col justify-between">
+                <span class="text-xs text-gray-400">勝 / 負筆數</span>
+                <span id="statWinLossCount" class="text-xl sm:text-2xl font-bold mt-2 text-white">0 <span class="text-xs text-gray-400 font-normal">/</span> 0</span>
+            </div>
+            <div class="bg-cyber-card border border-cyber-border rounded-xl p-4 flex flex-col justify-between">
+                <span class="text-xs text-gray-400">總交易筆數</span>
+                <span id="statTotalTrades" class="text-xl sm:text-2xl font-bold mt-2 text-white">0</span>
+            </div>
+            <div class="bg-cyber-card border border-cyber-border rounded-xl p-4 flex flex-col justify-between col-span-2 sm:col-span-1">
+                <span class="text-xs text-gray-400">最佳單筆獲利</span>
+                <span id="statBestTrade" class="text-xl sm:text-2xl font-bold mt-2 text-emerald-400">$0.00</span>
+            </div>
+        </section>
+
+        <!-- 交易輸入 / 編輯表單 -->
+        <section class="bg-cyber-card border border-cyber-border rounded-2xl p-5 shadow-xl relative">
+            <div class="flex justify-between items-center mb-4">
+                <h2 id="formTitle" class="text-base font-bold text-gray-100 flex items-center gap-2">
+                    <i class="fa-solid fa-pen-to-square text-emerald-400"></i> 新增交易紀錄
+                </h2>
+                <button id="cancelEditBtn" onclick="cancelEdit()" class="hidden text-xs text-rose-400 hover:text-rose-300 transition">
+                    <i class="fa-solid fa-xmark"></i> 取消編輯
+                </button>
+            </div>
+
+            <form id="tradeForm" onsubmit="handleFormSubmit(event)" class="space-y-4">
+                <input type="hidden" id="editingId" value="">
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+
+                    <!-- 交易所選擇 -->
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">交易所</label>
+                        <select id="inputExchange" required class="w-full bg-cyber-bg border border-cyber-border rounded-xl px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-emerald-400">
+                            <option value="Bitget" selected>Bitget</option>
+                            <option value="Binance">Binance</option>
+                            <option value="Bybit">Bybit</option>
+                            <option value="OKX">OKX</option>
+                            <option value="BitoPro">BitoPro</option>
+                            <option value="MAX">MAX</option>
+                            <option value="KuCoin">KuCoin</option>
+                            <option value="Gate.io">Gate.io</option>
+                            <option value="Other">其他</option>
+                        </select>
+                    </div>
+
+                    <!-- 幣種對動態搜尋 -->
+                    <div class="relative">
+                        <label class="block text-xs text-gray-400 mb-1">幣種對 (搜尋帶入價格)</label>
+                        <input type="text" id="inputSymbol" autocomplete="off" required placeholder="例如 BTC, PEPE..."
+                            oninput="handleSymbolInput(this.value)"
+                            class="w-full bg-cyber-bg border border-cyber-border rounded-xl px-3 py-2 text-sm text-gray-100 uppercase focus:outline-none focus:border-emerald-400">
+                        <div id="symbolDropdown" class="hidden absolute left-0 right-0 top-full mt-1 bg-cyber-card border border-cyber-border rounded-xl max-h-48 overflow-y-auto z-40 shadow-2xl"></div>
+                    </div>
+
+                    <!-- 方向 -->
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">方向 (Direction)</label>
+                        <select id="inputDirection" onchange="calculateRiskReward()" required class="w-full bg-cyber-bg border border-cyber-border rounded-xl px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-emerald-400">
+                            <option value="LONG">做多 (LONG)</option>
+                            <option value="SHORT">做空 (SHORT)</option>
+                        </select>
+                    </div>
+
+                    <!-- 槓桿倍數 -->
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">槓桿 (Leverage x)</label>
+                        <input type="number" step="1" id="inputLeverage" value="10" placeholder="10" oninput="calculateRiskReward()"
+                            class="w-full bg-cyber-bg border border-cyber-border rounded-xl px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-emerald-400">
+                    </div>
+
+                    <!-- 進場價格 -->
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">進場價格 (Entry Price)</label>
+                        <input type="number" step="any" id="inputEntryPrice" required placeholder="0.00" oninput="calculateRiskReward()"
+                            class="w-full bg-cyber-bg border border-cyber-border rounded-xl px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-emerald-400">
+                    </div>
+
+                    <!-- 止盈價 (TP) -->
+                    <div>
+                        <label class="block text-xs text-emerald-400 mb-1 flex justify-between">
+                            <span>止盈價格 (Take Profit)</span>
+                            <span id="tpCalcHint" class="text-[10px] text-emerald-400 font-mono"></span>
+                        </label>
+                        <input type="number" step="any" id="inputTpPrice" placeholder="選填止盈價" oninput="calculateRiskReward()"
+                            class="w-full bg-cyber-bg border border-emerald-500/30 rounded-xl px-3 py-2 text-sm text-emerald-300 focus:outline-none focus:border-emerald-400">
+                    </div>
+
+                    <!-- 止損價 (SL) -->
+                    <div>
+                        <label class="block text-xs text-rose-400 mb-1 flex justify-between">
+                            <span>止損價格 (Stop Loss)</span>
+                            <span id="slCalcHint" class="text-[10px] text-rose-400 font-mono"></span>
+                        </label>
+                        <input type="number" step="any" id="inputSlPrice" placeholder="選填止損價" oninput="calculateRiskReward()"
+                            class="w-full bg-cyber-bg border border-rose-500/30 rounded-xl px-3 py-2 text-sm text-rose-300 focus:outline-none focus:border-emerald-400">
+                    </div>
+
+                    <!-- 保證金 -->
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">保證金 (Margin USDT)</label>
+                        <input type="number" step="any" id="inputMargin" placeholder="100" oninput="calculateRiskReward()"
+                            class="w-full bg-cyber-bg border border-cyber-border rounded-xl px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-emerald-400">
+                    </div>
+
+                    <!-- 出場價格 -->
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">出場價格 (Exit Price)</label>
+                        <input type="number" step="any" id="inputExitPrice" placeholder="平倉時填寫"
+                            class="w-full bg-cyber-bg border border-cyber-border rounded-xl px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-emerald-400">
+                    </div>
+
+                    <!-- 狀態 -->
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">狀態 (Status)</label>
+                        <select id="inputStatus" class="w-full bg-cyber-bg border border-cyber-border rounded-xl px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-emerald-400">
+                            <option value="OPEN">持倉中 (OPEN)</option>
+                            <option value="CLOSED">已平倉 (CLOSED)</option>
+                        </select>
+                    </div>
+
+                    <!-- 預估風報比顯示卡片 -->
+                    <div class="col-span-1 sm:col-span-2 bg-cyber-bg/70 border border-cyber-border rounded-xl p-2.5 flex items-center justify-between text-xs">
+                        <span class="text-gray-400">預估風報比 (Risk/Reward):</span>
+                        <span id="rrRatioBadge" class="font-mono font-bold text-emerald-400 bg-cyber-card px-2.5 py-1 rounded-lg border border-cyber-border">--</span>
+                    </div>
+
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- 備註邏輯 -->
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">策略邏輯與備註</label>
+                        <textarea id="inputNotes" rows="3" placeholder="紀錄進場理由、型態位、關鍵支撐壓力或復盤想法..."
+                            class="w-full bg-cyber-bg border border-cyber-border rounded-xl p-3 text-sm text-gray-100 focus:outline-none focus:border-emerald-400 resize-none"></textarea>
+                    </div>
+
+                    <!-- K線圖片上傳區塊 -->
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">K線截圖 / 圖片 (壓縮上傳雲端)</label>
+                        <div class="border-2 border-dashed border-cyber-border rounded-xl p-3 bg-cyber-bg/40 flex flex-col items-center justify-center cursor-pointer hover:border-emerald-400/60 transition relative"
+                            onclick="document.getElementById('inputImage').click()">
+                            <input type="file" id="inputImage" accept="image/*" class="hidden" onchange="handleImageSelect(event)">
+                            <div id="imageUploadPlaceholder" class="text-center py-2">
+                                <i class="fa-solid fa-cloud-arrow-up text-xl text-gray-400 mb-1"></i>
+                                <p class="text-xs text-gray-400">點擊上傳 K 線截圖</p>
+                            </div>
+                            <div id="imagePreviewContainer" class="hidden relative w-full h-20 flex justify-center items-center">
+                                <img id="imagePreview" src="" class="max-h-full rounded object-contain">
+                                <button type="button" onclick="removeSelectedImage(event)" class="absolute top-0 right-2 bg-rose-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3">
+                    <button type="submit" id="submitFormBtn" class="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-black font-bold text-sm hover:from-emerald-400 hover:to-teal-400 shadow-lg shadow-emerald-500/20 transition">
+                        <i class="fa-solid fa-plus me-1"></i> 新增紀錄並同步雲端
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- 交易紀錄列表與篩選條件 -->
+        <section class="bg-cyber-card border border-cyber-border rounded-2xl p-5 shadow-xl">
+            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-5 pb-4 border-b border-cyber-border">
+                <h2 class="text-base font-bold text-gray-100 flex items-center gap-2 shrink-0">
+                    <i class="fa-solid fa-list-check text-emerald-400"></i> 交易歷史明細
+                </h2>
+
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:flex items-center gap-2 w-full lg:w-auto text-xs">
+                    <select id="filterExchange" onchange="renderTrades()" class="bg-cyber-bg border border-cyber-border rounded-lg px-2.5 py-1.5 text-gray-200 focus:outline-none focus:border-emerald-400">
+                        <option value="ALL">所有交易所</option>
+                        <option value="Bitget">Bitget</option>
+                        <option value="Binance">Binance</option>
+                        <option value="Bybit">Bybit</option>
+                        <option value="OKX">OKX</option>
+                        <option value="BitoPro">BitoPro</option>
+                        <option value="MAX">MAX</option>
+                    </select>
+
+                    <select id="filterDirection" onchange="renderTrades()" class="bg-cyber-bg border border-cyber-border rounded-lg px-2.5 py-1.5 text-gray-200 focus:outline-none focus:border-emerald-400">
+                        <option value="ALL">所有方向 (Long/Short)</option>
+                        <option value="LONG">做多 (LONG)</option>
+                        <option value="SHORT">做空 (SHORT)</option>
+                    </select>
+
+                    <select id="filterStatus" onchange="renderTrades()" class="bg-cyber-bg border border-cyber-border rounded-lg px-2.5 py-1.5 text-gray-200 focus:outline-none focus:border-emerald-400">
+                        <option value="ALL">所有狀態 (持倉/已平倉)</option>
+                        <option value="OPEN">持倉中 (OPEN)</option>
+                        <option value="CLOSED">已平倉 (CLOSED)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Table View (Desktop) -->
+            <div class="overflow-x-auto hidden xl:block">
+                <table class="w-full text-left text-xs text-gray-300">
+                    <thead class="bg-cyber-bg text-gray-400 uppercase border-b border-cyber-border">
+                        <tr>
+                            <th class="py-3 px-3">時間</th>
+                            <th class="py-3 px-3">交易所</th>
+                            <th class="py-3 px-3">幣種對</th>
+                            <th class="py-3 px-3">方向/槓桿</th>
+                            <th class="py-3 px-3">進場價</th>
+                            <th class="py-3 px-3">止盈 (TP) / 止損 (SL)</th>
+                            <th class="py-3 px-3">出場價格</th>
+                            <th class="py-3 px-3">保證金</th>
+                            <th class="py-3 px-3">損益 (PnL) / ROI</th>
+                            <th class="py-3 px-3">截圖</th>
+                            <th class="py-3 px-3">狀態</th>
+                            <th class="py-3 px-3 text-right">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tradeTableBody" class="divide-y divide-cyber-border">
+                        <!-- 動態插入交易紀錄 -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Mobile Card View -->
+            <div id="tradeCardContainer" class="grid grid-cols-1 md:grid-cols-2 xl:hidden gap-3">
+                <!-- 動態插入卡片明細 -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal: 圖片放大檢視 Modal -->
+    <div id="imageModal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm" onclick="closeImageModal()">
+        <div class="relative max-w-4xl max-h-[90vh]" onclick="event.stopPropagation()">
+            <img id="modalImg" src="" class="max-w-full max-h-[85vh] rounded-xl border border-cyber-border shadow-2xl">
+            <button onclick="closeImageModal()" class="absolute -top-3 -right-3 bg-cyber-card border border-cyber-border text-white rounded-full p-2 hover:bg-rose-600 transition">
+                <i class="fa-solid fa-xmark w-4 h-4 flex items-center justify-center"></i>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // =========================================================================
+        // 📌 請在此處填入您的 npoint Bin ID 或完整 API 網址
+        // 例如: const DEFAULT_NPOINT_ID = "a1b2c3d4e5f6";
+        // 或是: const DEFAULT_NPOINT_ID = "https://api.npoint.io/a1b2c3d4e5f6";
+        // =========================================================================
+        const DEFAULT_NPOINT_ID = "YOUR_NPOINT_BIN_ID_HERE";
+
+        // 全域狀態
+        let trades = [];
+        let npointUrl = '';
+        let currentTickerExchange = 'Bitget';
+        let currentMarketSymbols = [];
+        let currentBase64Image = '';
+
+        const exchangeStyles = {
+            'Bitget': 'bg-teal-950 text-emerald-400 border-emerald-500/40',
+            'Binance': 'bg-yellow-950 text-yellow-400 border-yellow-500/40',
+            'Bybit': 'bg-amber-950 text-amber-400 border-amber-500/40',
+            'OKX': 'bg-gray-800 text-white border-gray-600',
+            'BitoPro': 'bg-blue-950 text-blue-400 border-blue-500/40',
+            'MAX': 'bg-indigo-950 text-indigo-400 border-indigo-500/40',
+            'KuCoin': 'bg-teal-950 text-teal-400 border-teal-500/40',
+            'Gate.io': 'bg-red-950 text-rose-400 border-rose-500/40',
+            'Other': 'bg-purple-950 text-purple-400 border-purple-500/40'
+        };
+
+        // 頁面初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            initCloudConfig();
+            fetchTickers();
+        });
+
+        // Toast 通知小元件
+        function showToast(text, isSuccess = true) {
+            Toastify({
+                text: text,
+                duration: 2500,
+                gravity: "top",
+                position: "right",
+                style: {
+                    background: isSuccess ? "#00B574" : "#F6465D",
+                    color: "#000",
+                    fontWeight: "bold",
+                    borderRadius: "8px"
+                }
+            }).showToast();
+        }
+
+        function formatNpointUrl(input) {
+            let clean = input.trim();
+            if (clean.startsWith('http://') || clean.startsWith('https://')) {
+                return clean;
+            }
+            return `https://api.npoint.io/${clean}`;
+        }
+
+        // 初始化雲端連線設定 (自動讀取寫死的 DEFAULT_NPOINT_ID)
+        function initCloudConfig() {
+            const storedBin = localStorage.getItem('npoint_bin_id');
+            const activeBin = (DEFAULT_NPOINT_ID !== "YOUR_NPOINT_BIN_ID_HERE" && DEFAULT_NPOINT_ID.trim() !== "") 
+                ? DEFAULT_NPOINT_ID 
+                : (storedBin || "demo");
+
+            npointUrl = formatNpointUrl(activeBin);
+            localStorage.setItem('npoint_bin_id', activeBin);
+
+            fetchFromNpoint();
+        }
+
+        function updateSyncStatus(text, status) {
+            const badge = document.getElementById('syncStatusBadge');
+            const dot = document.getElementById('syncStatusDot');
+            const textSpan = document.getElementById('syncStatusText');
+
+            textSpan.innerText = text;
+
+            if (status === 'success') {
+                badge.className = "px-3 py-1.5 rounded-xl bg-emerald-950/80 text-emerald-400 border border-emerald-500/40 flex items-center gap-2 font-medium shadow-sm text-xs";
+                dot.className = "w-2 h-2 rounded-full bg-emerald-400 animate-pulse";
+            } else if (status === 'syncing') {
+                badge.className = "px-3 py-1.5 rounded-xl bg-amber-950/80 text-amber-400 border border-amber-500/40 flex items-center gap-2 font-medium shadow-sm text-xs";
+                dot.className = "w-2 h-2 rounded-full bg-amber-400 animate-ping";
+            } else {
+                badge.className = "px-3 py-1.5 rounded-xl bg-rose-950/80 text-rose-400 border border-rose-500/40 flex items-center gap-2 font-medium shadow-sm text-xs";
+                dot.className = "w-2 h-2 rounded-full bg-rose-400";
+            }
+        }
+
+        // 從 npoint 遠端獲取資料 (兼具本地備份)
+        async function fetchFromNpoint() {
+            updateSyncStatus('同步雲端中...', 'syncing');
+            
+            // 先載入本地資料快速呈現
+            const cachedData = localStorage.getItem('local_trades_backup');
+            if (cachedData) {
+                try {
+                    trades = JSON.parse(cachedData);
+                    renderTrades();
+                } catch(e) {}
+            }
+
+            try {
+                const res = await fetch(npointUrl);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                
+                if (data && Array.isArray(data.trades)) {
+                    trades = data.trades;
+                    trades.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+                    localStorage.setItem('local_trades_backup', JSON.stringify(trades));
+                    renderTrades();
+                    updateSyncStatus('🟢 雲端已連線同步', 'success');
+                } else {
+                    updateSyncStatus('🟡 使用本地備份數據', 'syncing');
+                }
+            } catch (err) {
+                console.warn('Fetch npoint error:', err);
+                updateSyncStatus('🟡 離線/本地快取模式', 'syncing');
+            }
+        }
+
+        // 保存資料至 npoint (PUT) 與 LocalStorage
+        async function saveToNpoint() {
+            localStorage.setItem('local_trades_backup', JSON.stringify(trades));
+            updateSyncStatus('🟡 寫入雲端中...', 'syncing');
+
+            try {
+                const response = await fetch(npointUrl, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ trades: trades })
+                });
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                updateSyncStatus('🟢 雲端已連線同步', 'success');
+                showToast('雲端與本地儲存成功！');
+            } catch (err) {
+                console.error('Save to npoint failed:', err);
+                updateSyncStatus('🟡 僅儲存於本地快取', 'syncing');
+                showToast('網路較慢，已先於本地完成備份', false);
+            }
+        }
+
+        // 交易所切換
+        function switchTickerExchange(exchange) {
+            currentTickerExchange = exchange;
+            ['Bitget', 'Binance', 'Bybit'].forEach(ex => {
+                const btn = document.getElementById(`tab${ex}`);
+                if (ex === exchange) {
+                    btn.className = "px-3 py-1 rounded-lg text-xs font-bold transition bg-emerald-400 text-black shadow";
+                } else {
+                    btn.className = "px-3 py-1 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition";
+                }
+            });
+
+            document.getElementById('gainerExLabel').innerText = exchange;
+            document.getElementById('loserExLabel').innerText = exchange;
+            fetchTickers();
+        }
+
+        // 抓取三大交易所 24h 漲跌榜 API
+        async function fetchTickers() {
+            const icon = document.getElementById('refreshIcon');
+            icon.classList.add('fa-spin');
+
+            document.getElementById('topGainers').innerHTML = '<span class="text-gray-500 text-xs">載入中...</span>';
+            document.getElementById('topLosers').innerHTML = '<span class="text-gray-500 text-xs">載入中...</span>';
+
+            try {
+                let parsed = [];
+
+                if (currentTickerExchange === 'Bitget') {
+                    const res = await fetch('https://api.bitget.com/api/v2/mix/market/tickers?productType=USDT-FUTURES');
+                    const json = await res.json();
+                    if (json.code === '00000' && json.data) {
+                        parsed = json.data.map(item => ({
+                            symbol: item.symbol.replace('_UMCBL', '').replace('USDT', ''),
+                            price: parseFloat(item.lastPr),
+                            change: parseFloat(item.change24h) * 100
+                        }));
+                    }
+                } else if (currentTickerExchange === 'Binance') {
+                    const res = await fetch('https://fapi.binance.com/fapi/v1/ticker/24hr');
+                    const json = await res.json();
+                    if (Array.isArray(json)) {
+                        parsed = json.filter(i => i.symbol.endsWith('USDT')).map(item => ({
+                            symbol: item.symbol.replace('USDT', ''),
+                            price: parseFloat(item.lastPrice),
+                            change: parseFloat(item.priceChangePercent)
+                        }));
+                    }
+                } else if (currentTickerExchange === 'Bybit') {
+                    const res = await fetch('https://api.bybit.com/v5/market/tickers?category=linear');
+                    const json = await res.json();
+                    if (json.retCode === 0 && json.result?.list) {
+                        parsed = json.result.list.filter(i => i.symbol.endsWith('USDT')).map(item => ({
+                            symbol: item.symbol.replace('USDT', ''),
+                            price: parseFloat(item.lastPrice),
+                            change: parseFloat(item.price24hPcnt) * 100
+                        }));
+                    }
+                }
+
+                currentMarketSymbols = parsed;
+                renderTickerCards(parsed);
+            } catch (err) {
+                console.error('Ticker Fetch Error:', err);
+                document.getElementById('topGainers').innerHTML = '<span class="text-rose-400 text-xs">行情獲取失敗，請重試</span>';
+                document.getElementById('topLosers').innerHTML = '<span class="text-rose-400 text-xs">行情獲取失敗，請重試</span>';
+            } finally {
+                icon.classList.remove('fa-spin');
+            }
+        }
+
+        // 渲染 24h 漲跌榜單卡片
+        function renderTickerCards(data) {
+            const valid = data.filter(i => !isNaN(i.change) && !isNaN(i.price));
+            const sortedGainers = [...valid].sort((a,b) => b.change - a.change).slice(0, 10);
+            const sortedLosers = [...valid].sort((a,b) => a.change - b.change).slice(0, 10);
+
+            const gContainer = document.getElementById('topGainers');
+            const lContainer = document.getElementById('topLosers');
+
+            gContainer.innerHTML = sortedGainers.map(item => `
+                <div onclick="selectSymbolFromTicker('${item.symbol}', ${item.price})" 
+                    class="bg-cyber-card border border-emerald-500/30 hover:border-emerald-400 px-2.5 py-1.5 rounded-lg cursor-pointer shrink-0 transition hover:scale-105">
+                    <div class="font-bold text-gray-200">${item.symbol}</div>
+                    <div class="text-[10px] text-gray-400">$${item.price}</div>
+                    <div class="text-emerald-400 font-mono font-bold">+${item.change.toFixed(2)}%</div>
+                </div>
+            `).join('');
+
+            lContainer.innerHTML = sortedLosers.map(item => `
+                <div onclick="selectSymbolFromTicker('${item.symbol}', ${item.price})" 
+                    class="bg-cyber-card border border-rose-500/30 hover:border-rose-400 px-2.5 py-1.5 rounded-lg cursor-pointer shrink-0 transition hover:scale-105">
+                    <div class="font-bold text-gray-200">${item.symbol}</div>
+                    <div class="text-[10px] text-gray-400">$${item.price}</div>
+                    <div class="text-rose-400 font-mono font-bold">${item.change.toFixed(2)}%</div>
+                </div>
+            `).join('');
+        }
+
+        // 點擊漲跌榜一鍵帶入表單
+        function selectSymbolFromTicker(symbol, price) {
+            document.getElementById('inputSymbol').value = symbol + 'USDT';
+            document.getElementById('inputEntryPrice').value = price;
+            document.getElementById('inputExchange').value = currentTickerExchange;
+            calculateRiskReward();
+            showToast(`已帶入 ${symbol}USDT 價格 $${price}`);
+        }
+
+        // 幣種輸入框模組 (模糊搜尋下拉選單)
+        function handleSymbolInput(val) {
+            const query = val.trim().toUpperCase().replace('USDT', '');
+            const dropdown = document.getElementById('symbolDropdown');
+
+            if (!query || currentMarketSymbols.length === 0) {
+                dropdown.classList.add('hidden');
+                return;
+            }
+
+            const matches = currentMarketSymbols.filter(i => i.symbol.includes(query)).slice(0, 8);
+
+            if (matches.length === 0) {
+                dropdown.classList.add('hidden');
+                return;
+            }
+
+            dropdown.innerHTML = matches.map(item => `
+                <div onclick="applyDropdownSymbol('${item.symbol}', ${item.price})" 
+                    class="p-2.5 hover:bg-cyber-bg flex justify-between items-center cursor-pointer border-b border-cyber-border/50 text-xs">
+                    <span class="font-bold text-emerald-400">${item.symbol}USDT</span>
+                    <span class="text-gray-300 font-mono">$${item.price}</span>
+                </div>
+            `).join('');
+
+            dropdown.classList.remove('hidden');
+        }
+
+        function applyDropdownSymbol(symbol, price) {
+            document.getElementById('inputSymbol').value = symbol + 'USDT';
+            document.getElementById('inputEntryPrice').value = price;
+            document.getElementById('symbolDropdown').classList.add('hidden');
+            calculateRiskReward();
+        }
+
+        // 風報比 (Risk/Reward) 即時計算
+        function calculateRiskReward() {
+            const entry = parseFloat(document.getElementById('inputEntryPrice').value);
+            const tp = parseFloat(document.getElementById('inputTpPrice').value);
+            const sl = parseFloat(document.getElementById('inputSlPrice').value);
+            const dir = document.getElementById('inputDirection').value;
+            const badge = document.getElementById('rrRatioBadge');
+
+            if (!entry || !tp || !sl) {
+                badge.innerText = '--';
+                badge.className = "font-mono font-bold text-gray-400 bg-cyber-card px-2.5 py-1 rounded-lg border border-cyber-border";
+                return;
+            }
+
+            let rewardPercent = 0;
+            let riskPercent = 0;
+
+            if (dir === 'LONG') {
+                rewardPercent = (tp - entry) / entry;
+                riskPercent = (entry - sl) / entry;
+            } else {
+                rewardPercent = (entry - tp) / entry;
+                riskPercent = (sl - entry) / entry;
+            }
+
+            if (riskPercent <= 0 || rewardPercent <= 0) {
+                badge.innerText = '價格邏輯有誤';
+                badge.className = "font-mono font-bold text-rose-400 bg-cyber-card px-2.5 py-1 rounded-lg border border-rose-500/30";
+                return;
+            }
+
+            const rr = (rewardPercent / riskPercent).toFixed(2);
+            badge.innerText = `1 : ${rr}`;
+            badge.className = "font-mono font-bold text-emerald-400 bg-cyber-card px-2.5 py-1 rounded-lg border border-emerald-500/30";
+        }
+
+        // K 線圖處理與壓縮
+        function handleImageSelect(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const maxW = 800;
+                    let scale = 1;
+                    if (img.width > maxW) scale = maxW / img.width;
+
+                    canvas.width = img.width * scale;
+                    canvas.height = img.height * scale;
+
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                    currentBase64Image = canvas.toDataURL('image/jpeg', 0.6);
+
+                    document.getElementById('imagePreview').src = currentBase64Image;
+                    document.getElementById('imageUploadPlaceholder').classList.add('hidden');
+                    document.getElementById('imagePreviewContainer').classList.remove('hidden');
+                };
+                img.src = evt.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removeSelectedImage(e) {
+            if (e) e.stopPropagation();
+            currentBase64Image = '';
+            document.getElementById('inputImage').value = '';
+            document.getElementById('imageUploadPlaceholder').classList.remove('hidden');
+            document.getElementById('imagePreviewContainer').classList.add('hidden');
+        }
+
+        // 表單送出 (新增 / 編輯)
+        function handleFormSubmit(e) {
+            e.preventDefault();
+
+            const editingId = document.getElementById('editingId').value;
+            const entry = parseFloat(document.getElementById('inputEntryPrice').value);
+            const exit = parseFloat(document.getElementById('inputExitPrice').value) || null;
+            const margin = parseFloat(document.getElementById('inputMargin').value) || 0;
+            const lev = parseFloat(document.getElementById('inputLeverage').value) || 1;
+            const dir = document.getElementById('inputDirection').value;
+            const status = document.getElementById('inputStatus').value;
+
+            let pnl = 0;
+            let roi = 0;
+
+            if (exit && entry) {
+                if (dir === 'LONG') {
+                    roi = ((exit - entry) / entry) * lev * 100;
+                } else {
+                    roi = ((entry - exit) / entry) * lev * 100;
+                }
+                pnl = (margin * roi) / 100;
+            }
+
+            const nowTimestamp = new Date().toLocaleString('zh-TW', { hour12: false });
+
+            const tradeObj = {
+                id: editingId || Date.now().toString(),
+                timestamp: editingId ? (trades.find(t=>t.id===editingId)?.timestamp || nowTimestamp) : nowTimestamp,
+                exchange: document.getElementById('inputExchange').value,
+                symbol: document.getElementById('inputSymbol').value.toUpperCase(),
+                direction: dir,
+                leverage: lev,
+                entryPrice: entry,
+                tpPrice: parseFloat(document.getElementById('inputTpPrice').value) || null,
+                slPrice: parseFloat(document.getElementById('inputSlPrice').value) || null,
+                margin: margin,
+                exitPrice: exit,
+                pnl: parseFloat(pnl.toFixed(2)),
+                roi: parseFloat(roi.toFixed(2)),
+                status: status,
+                notes: document.getElementById('inputNotes').value,
+                image: currentBase64Image
+            };
+
+            if (editingId) {
+                const idx = trades.findIndex(t => t.id === editingId);
+                if (idx !== -1) trades[idx] = tradeObj;
+            } else {
+                trades.unshift(tradeObj);
+            }
+
+            saveToNpoint();
+            resetForm();
+            renderTrades();
+        }
+
+        function resetForm() {
+            document.getElementById('tradeForm').reset();
+            document.getElementById('editingId').value = '';
+            document.getElementById('formTitle').innerHTML = '<i class="fa-solid fa-pen-to-square text-emerald-400"></i> 新增交易紀錄';
+            document.getElementById('submitFormBtn').innerHTML = '<i class="fa-solid fa-plus me-1"></i> 新增紀錄並同步雲端';
+            document.getElementById('cancelEditBtn').classList.add('hidden');
+            removeSelectedImage();
+            document.getElementById('rrRatioBadge').innerText = '--';
+        }
+
+        function cancelEdit() {
+            resetForm();
+        }
+
+        // 編輯交易
+        function editTrade(id) {
+            const t = trades.find(item => item.id === id);
+            if (!t) return;
+
+            document.getElementById('editingId').value = t.id;
+            document.getElementById('inputExchange').value = t.exchange || 'Bitget';
+            document.getElementById('inputSymbol').value = t.symbol;
+            document.getElementById('inputDirection').value = t.direction;
+            document.getElementById('inputLeverage').value = t.leverage;
+            document.getElementById('inputEntryPrice').value = t.entryPrice;
+            document.getElementById('inputTpPrice').value = t.tpPrice || '';
+            document.getElementById('inputSlPrice').value = t.slPrice || '';
+            document.getElementById('inputMargin').value = t.margin || '';
+            document.getElementById('inputExitPrice').value = t.exitPrice || '';
+            document.getElementById('inputStatus').value = t.status;
+            document.getElementById('inputNotes').value = t.notes || '';
+
+            if (t.image) {
+                currentBase64Image = t.image;
+                document.getElementById('imagePreview').src = t.image;
+                document.getElementById('imageUploadPlaceholder').classList.add('hidden');
+                document.getElementById('imagePreviewContainer').classList.remove('hidden');
+            } else {
+                removeSelectedImage();
+            }
+
+            document.getElementById('formTitle').innerHTML = '<i class="fa-solid fa-pen-to-square text-amber-400"></i> 編輯交易紀錄';
+            document.getElementById('submitFormBtn').innerHTML = '<i class="fa-solid fa-check me-1"></i> 更新紀錄並同步';
+            document.getElementById('cancelEditBtn').classList.remove('hidden');
+
+            calculateRiskReward();
+            window.scrollTo({ top: document.getElementById('tradeForm').offsetTop - 80, behavior: 'smooth' });
+        }
+
+        // 刪除交易
+        function deleteTrade(id) {
+            Swal.fire({
+                title: '確定要刪除這筆交易？',
+                text: "刪除後會同步更新至雲端",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#F6465D',
+                cancelButtonColor: '#2A2D35',
+                confirmButtonText: '確定刪除',
+                cancelButtonText: '取消',
+                background: '#16181E',
+                color: '#fff'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    trades = trades.filter(t => t.id !== id);
+                    saveToNpoint();
+                    renderTrades();
+                }
+            });
+        }
+
+        // 快速平倉 Modal
+        function quickCloseTrade(id) {
+            const t = trades.find(item => item.id === id);
+            if (!t) return;
+
+            Swal.fire({
+                title: `快速平倉 ${t.symbol}`,
+                input: 'number',
+                inputLabel: '請輸入出場價格',
+                inputPlaceholder: '0.00',
+                showCancelButton: true,
+                confirmButtonText: '計算並平倉',
+                confirmButtonColor: '#00B574',
+                cancelButtonText: '取消',
+                background: '#16181E',
+                color: '#fff',
+                inputValidator: (value) => {
+                    if (!value) return '必須輸入出場價格！';
+                }
+            }).then((res) => {
+                if (res.isConfirmed && res.value) {
+                    const exit = parseFloat(res.value);
+                    const lev = t.leverage || 1;
+                    const margin = t.margin || 0;
+                    
+                    let roi = 0;
+                    if (t.direction === 'LONG') {
+                        roi = ((exit - t.entryPrice) / t.entryPrice) * lev * 100;
+                    } else {
+                        roi = ((t.entryPrice - exit) / t.entryPrice) * lev * 100;
+                    }
+                    const pnl = (margin * roi) / 100;
+
+                    t.exitPrice = exit;
+                    t.roi = parseFloat(roi.toFixed(2));
+                    t.pnl = parseFloat(pnl.toFixed(2));
+                    t.status = 'CLOSED';
+
+                    saveToNpoint();
+                    renderTrades();
+                }
+            });
+        }
+
+        // 匯出 Excel (CSV) - 不含圖片
+        function exportToExcelCSV() {
+            if (trades.length === 0) {
+                showToast('目前沒有任何交易紀錄可供匯出', false);
+                return;
+            }
+
+            const headers = ['時間', '交易所', '幣種', '方向', '槓桿', '進場價', '止盈價', '止損價', '保證金', '出場價', '損益 (USDT)', 'ROI (%)', '狀態', '策略備註'];
+            
+            let csvContent = '\uFEFF' + headers.join(',') + '\n';
+
+            trades.forEach(t => {
+                let row = [
+                    `"${t.timestamp || ''}"`,
+                    `"${t.exchange || ''}"`,
+                    `"${t.symbol || ''}"`,
+                    `"${t.direction || ''}"`,
+                    t.leverage || 1,
+                    t.entryPrice || 0,
+                    t.tpPrice || '',
+                    t.slPrice || '',
+                    t.margin || 0,
+                    t.exitPrice || '',
+                    t.pnl || 0,
+                    t.roi || 0,
+                    `"${t.status || ''}"`,
+                    `"${(t.notes || '').replace(/"/g, '""')}"`
+                ];
+                csvContent += row.join(',') + '\n';
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Crypto_Trading_Journal_${new Date().toISOString().slice(0,10)}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showToast('Excel (CSV) 匯出成功！');
+        }
+
+        // 渲染交易歷史與全動態面板計算
+        function renderTrades() {
+            const filterEx = document.getElementById('filterExchange').value;
+            const filterDir = document.getElementById('filterDirection').value;
+            const filterSt = document.getElementById('filterStatus').value;
+
+            const filtered = trades.filter(t => {
+                if (filterEx !== 'ALL' && t.exchange !== filterEx) return false;
+                if (filterDir !== 'ALL' && t.direction !== filterDir) return false;
+                if (filterSt !== 'ALL' && t.status !== filterSt) return false;
+                return true;
+            });
+
+            // 全數據面板統計 (只針對所有已平倉單進行統計)
+            const closedTrades = trades.filter(t => t.status === 'CLOSED');
+            const totalPnl = closedTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+            const winTrades = closedTrades.filter(t => (t.pnl || 0) > 0);
+            const lossTrades = closedTrades.filter(t => (t.pnl || 0) <= 0);
+            const winRate = closedTrades.length > 0 ? ((winTrades.length / closedTrades.length) * 100).toFixed(1) : '0';
+            const bestPnl = closedTrades.length > 0 ? Math.max(...closedTrades.map(t => t.pnl || 0)) : 0;
+
+            const pnlEl = document.getElementById('statTotalPnl');
+            pnlEl.innerText = `$${totalPnl.toFixed(2)}`;
+            pnlEl.className = `text-xl sm:text-2xl font-bold mt-2 font-mono ${totalPnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+
+            document.getElementById('statWinRate').innerText = `${winRate}%`;
+            document.getElementById('statWinLossCount').innerHTML = `<span class="text-emerald-400">${winTrades.length}</span> / <span class="text-rose-400">${lossTrades.length}</span>`;
+            document.getElementById('statTotalTrades').innerText = trades.length;
+            document.getElementById('statBestTrade').innerText = `$${bestPnl.toFixed(2)}`;
+
+            // 渲染表格 (Desktop)
+            const tbody = document.getElementById('tradeTableBody');
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="12" class="text-center py-8 text-gray-500">尚無交易紀錄或符合條件的項目</td></tr>`;
+            } else {
+                tbody.innerHTML = filtered.map(t => {
+                    const exClass = exchangeStyles[t.exchange] || exchangeStyles['Other'];
+                    const isLong = t.direction === 'LONG';
+                    const isClosed = t.status === 'CLOSED';
+                    const pnlColor = (t.pnl || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400';
+
+                    return `
+                        <tr class="hover:bg-cyber-card/60 transition">
+                            <td class="py-3 px-3 text-gray-400 font-mono text-[11px]">${t.timestamp || '--'}</td>
+                            <td class="py-3 px-3">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${exClass}">${t.exchange || 'Bitget'}</span>
+                            </td>
+                            <td class="py-3 px-3 font-bold text-gray-200">${t.symbol}</td>
+                            <td class="py-3 px-3">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isLong ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' : 'bg-rose-950 text-rose-400 border border-rose-500/30'}">
+                                    ${t.direction} ${t.leverage}x
+                                </span>
+                            </td>
+                            <td class="py-3 px-3 font-mono">$${t.entryPrice}</td>
+                            <td class="py-3 px-3 font-mono text-[11px]">
+                                <div class="text-emerald-400">TP: ${t.tpPrice ? '$' + t.tpPrice : '--'}</div>
+                                <div class="text-rose-400">SL: ${t.slPrice ? '$' + t.slPrice : '--'}</div>
+                            </td>
+                            <td class="py-3 px-3 font-mono">${t.exitPrice ? '$' + t.exitPrice : '--'}</td>
+                            <td class="py-3 px-3 font-mono">$${t.margin || '--'}</td>
+                            <td class="py-3 px-3 font-mono font-bold ${pnlColor}">
+                                ${isClosed ? `$${t.pnl} (${t.roi}%)` : '<span class="text-amber-400 font-normal">持倉中</span>'}
+                            </td>
+                            <td class="py-3 px-3">
+                                ${t.image ? `<img src="${t.image}" onclick="openImageModal('${t.image}')" class="w-8 h-8 rounded object-cover cursor-pointer hover:scale-110 transition border border-cyber-border">` : '--'}
+                            </td>
+                            <td class="py-3 px-3">
+                                <span class="px-2 py-0.5 rounded-full text-[10px] ${isClosed ? 'bg-gray-800 text-gray-400' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'}">
+                                    ${t.status}
+                                </span>
+                            </td>
+                            <td class="py-3 px-3 text-right space-x-1">
+                                ${!isClosed ? `<button onclick="quickCloseTrade('${t.id}')" class="px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30 transition text-[10px]" title="快速平倉"><i class="fa-solid fa-flag-checkered"></i></button>` : ''}
+                                <button onclick="editTrade('${t.id}')" class="px-2 py-1 bg-cyber-bg border border-cyber-border text-gray-300 rounded hover:text-white transition text-[10px]"><i class="fa-solid fa-pen"></i></button>
+                                <button onclick="deleteTrade('${t.id}')" class="px-2 py-1 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded hover:bg-rose-500/20 transition text-[10px]"><i class="fa-solid fa-trash"></i></button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            // 渲染卡片 (Mobile)
+            const cardContainer = document.getElementById('tradeCardContainer');
+            if (filtered.length === 0) {
+                cardContainer.innerHTML = `<div class="col-span-full text-center py-8 text-gray-500 text-xs">尚無交易紀錄</div>`;
+            } else {
+                cardContainer.innerHTML = filtered.map(t => {
+                    const exClass = exchangeStyles[t.exchange] || exchangeStyles['Other'];
+                    const isLong = t.direction === 'LONG';
+                    const isClosed = t.status === 'CLOSED';
+                    const pnlColor = (t.pnl || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400';
+
+                    return `
+                        <div class="bg-cyber-bg/90 border border-cyber-border rounded-xl p-4 space-y-3 relative">
+                            <div class="flex justify-between items-center">
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${exClass}">${t.exchange || 'Bitget'}</span>
+                                    <span class="font-bold text-gray-100 text-sm">${t.symbol}</span>
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isLong ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'}">
+                                        ${t.direction} ${t.leverage}x
+                                    </span>
+                                </div>
+                                <span class="text-[10px] px-2 py-0.5 rounded-full ${isClosed ? 'bg-gray-800 text-gray-400' : 'bg-emerald-500/10 text-emerald-400'}">
+                                    ${t.status}
+                                </span>
+                            </div>
+
+                            <div class="text-[11px] text-gray-400 font-mono"><i class="fa-regular fa-clock me-1"></i> ${t.timestamp || '--'}</div>
+
+                            <div class="grid grid-cols-2 gap-2 text-xs font-mono bg-cyber-card p-2.5 rounded-lg border border-cyber-border/50">
+                                <div><span class="text-gray-500">進場:</span> $${t.entryPrice}</div>
+                                <div><span class="text-gray-500">出場:</span> ${t.exitPrice ? '$' + t.exitPrice : '--'}</div>
+                                <div class="text-emerald-400"><span class="text-gray-500">止盈:</span> ${t.tpPrice ? '$' + t.tpPrice : '--'}</div>
+                                <div class="text-rose-400"><span class="text-gray-500">止損:</span> ${t.slPrice ? '$' + t.slPrice : '--'}</div>
+                            </div>
+
+                            <div class="flex justify-between items-center text-xs pt-1">
+                                <div>
+                                    <span class="text-gray-400">損益: </span>
+                                    <span class="font-mono font-bold ${pnlColor}">
+                                        ${isClosed ? `$${t.pnl} (${t.roi}%)` : '持倉中'}
+                                    </span>
+                                </div>
+                                <div class="flex gap-2">
+                                    ${t.image ? `<button onclick="openImageModal('${t.image}')" class="px-2 py-1 bg-cyber-card border border-cyber-border rounded text-xs text-gray-300"><i class="fa-solid fa-image"></i> 圖</button>` : ''}
+                                    ${!isClosed ? `<button onclick="quickCloseTrade('${t.id}')" class="px-2.5 py-1 bg-emerald-500/20 text-emerald-400 rounded text-xs font-bold">平倉</button>` : ''}
+                                    <button onclick="editTrade('${t.id}')" class="px-2 py-1 bg-cyber-card border border-cyber-border rounded text-xs text-gray-300"><i class="fa-solid fa-pen"></i></button>
+                                    <button onclick="deleteTrade('${t.id}')" class="px-2 py-1 bg-rose-500/20 text-rose-400 rounded text-xs"><i class="fa-solid fa-trash"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        // 圖片檢視 Modal 控制
+        function openImageModal(src) {
+            document.getElementById('modalImg').src = src;
+            document.getElementById('imageModal').classList.remove('hidden');
+        }
+
+        function closeImageModal() {
+            document.getElementById('imageModal').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
